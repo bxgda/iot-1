@@ -1,0 +1,37 @@
+# .NET
+**/bin/
+**/obj/
+**/*.user
+**/*.suo
+**/*.DotSettings
+
+# Python
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/venv/
+**/.venv/
+
+# gRPC generated files
+grpc-service/sensor_pb2.py
+grpc-service/sensor_pb2_grpc.py
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.swp
+
+# Docker
+**/docker-compose.override.yml
+
+# Environment
+.env
+
+# k6 results
+k6-tests/results/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
