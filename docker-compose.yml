@@ -18,5 +18,16 @@ services:
       timeout: 5s
       retries: 10
 
+  rest-service:
+    build: ./rest-service
+    container_name: iot-rest
+    ports:
+      - "5000:8080"
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgres;Database=iot;Username=iot_user;Password=iot_pass"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   pgdata:
