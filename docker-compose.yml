@@ -29,5 +29,19 @@ services:
       postgres:
         condition: service_healthy
 
+  grpc-service:
+    build: ./grpc-service
+    container_name: iot-grpc
+    ports:
+      - "50051:50051"
+    environment:
+      DB_HOST: postgres
+      DB_NAME: iot
+      DB_USER: iot_user
+      DB_PASS: iot_pass
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   pgdata:
