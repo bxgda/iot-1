@@ -5,7 +5,7 @@
  * samo 2 od 7 senzorskih vrednosti (temp i humidity).
  * Fokus: velicina odgovora i over-fetching.
  *
- * Pokretanje:
+ * Pokretanje: 
  *   k6 run -e PROTOCOL=rest -e VUS=10 scenario-b-selective.js
  *   k6 run -e PROTOCOL=rest -e VUS=100 scenario-b-selective.js
  *   k6 run -e PROTOCOL=rest -e VUS=500 scenario-b-selective.js
