@@ -15,7 +15,7 @@
 
 import http from "k6/http";
 import grpc from "k6/net/grpc";
-import { check, sleep } from "k6";
+import { check } from "k6";
 import { Trend } from "k6/metrics";
 import { randomDevice, TIME_FROM, TIME_TO } from "./helpers/data-generator.js";
 
@@ -50,6 +50,8 @@ export const options = {
 const grpcClient = new grpc.Client();
 grpcClient.load(["../grpc-service/protos"], "sensor.proto");
 
+let grpcConnected = false;
+
 // ==================== TEST FUNKCIJE ====================
 
 function restSelective() {
@@ -68,7 +70,10 @@ function restSelective() {
 }
 
 function grpcSelective() {
-    grpcClient.connect(GRPC_HOST, { plaintext: true });
+    if (!grpcConnected) {
+        grpcClient.connect(GRPC_HOST, { plaintext: true, timeout: "5s" });
+        grpcConnected = true;
+    }
 
     const device = randomDevice();
     const res = grpcClient.invoke("sensor.SensorService/GetSelectedFields", {
@@ -83,7 +88,6 @@ function grpcSelective() {
         "gRPC status OK": (r) => r && r.status === grpc.StatusOK,
     });
 
-    // gRPC binarni payload — merimo velicinu serialized odgovora
     if (res.message) {
         responseSize.add(JSON.stringify(res.message).length);
     }

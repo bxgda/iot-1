@@ -49,6 +49,8 @@ export const options = {
 const grpcClient = new grpc.Client();
 grpcClient.load(["../grpc-service/protos"], "sensor.proto");
 
+let grpcConnected = false;
+
 // ==================== TEST FUNKCIJE ====================
 
 function restHeavyQuery() {
@@ -68,7 +70,10 @@ function restHeavyQuery() {
 }
 
 function grpcHeavyQuery() {
-    grpcClient.connect(GRPC_HOST, { plaintext: true });
+    if (!grpcConnected) {
+        grpcClient.connect(GRPC_HOST, { plaintext: true, timeout: "5s" });
+        grpcConnected = true;
+    }
 
     const device = randomDevice();
     const res = grpcClient.invoke("sensor.SensorService/GetAggregation", {

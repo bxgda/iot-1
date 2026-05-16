@@ -14,7 +14,7 @@
 
 import http from "k6/http";
 import grpc from "k6/net/grpc";
-import { check, sleep } from "k6";
+import { check } from "k6";
 import { generateReading } from "./helpers/data-generator.js";
 
 // ==================== KONFIGURACIJA ====================
@@ -45,11 +45,13 @@ export const options = {
 const grpcClient = new grpc.Client();
 grpcClient.load(["../grpc-service/protos"], "sensor.proto");
 
+// Konekcija se otvara jednom po VU (ne u svakoj iteraciji)
+let grpcConnected = false;
+
 // ==================== TEST FUNKCIJE ====================
 
 function restIngest() {
     const reading = generateReading();
-    // REST ocekuje DeviceId umesto device_id
     const payload = JSON.stringify({
         ts: reading.ts,
         deviceId: reading.device_id,
@@ -72,7 +74,10 @@ function restIngest() {
 }
 
 function grpcIngest() {
-    grpcClient.connect(GRPC_HOST, { plaintext: true });
+    if (!grpcConnected) {
+        grpcClient.connect(GRPC_HOST, { plaintext: true, timeout: "5s" });
+        grpcConnected = true;
+    }
 
     const reading = generateReading();
     const res = grpcClient.invoke("sensor.SensorService/IngestReading", reading);
