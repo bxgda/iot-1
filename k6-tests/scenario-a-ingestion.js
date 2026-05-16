@@ -4,7 +4,7 @@
  * Simulira uredjaje koji salju podatke u kratkim intervalima.
  * Fokus: brzina upisa i overhead protokola.
  *
- * Pokretanje:
+ * Pokretanje: 
  *   k6 run -e PROTOCOL=rest -e VUS=10 scenario-a-ingestion.js
  *   k6 run -e PROTOCOL=rest -e VUS=100 scenario-a-ingestion.js
  *   k6 run -e PROTOCOL=rest -e VUS=500 scenario-a-ingestion.js
