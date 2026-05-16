@@ -4,7 +4,7 @@
  * Slozeni upiti nad velikim opsegom istorijskih podataka (agregacije).
  * Fokus: performanse agregacionih upita i serijalizacija rezultata.
  *
- * Pokretanje:
+ * Pokretanje: 
  *   k6 run -e PROTOCOL=rest -e VUS=10 scenario-c-heavy-query.js
  *   k6 run -e PROTOCOL=rest -e VUS=100 scenario-c-heavy-query.js
  *   k6 run -e PROTOCOL=rest -e VUS=500 scenario-c-heavy-query.js
