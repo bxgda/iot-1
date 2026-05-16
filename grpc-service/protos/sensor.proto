@@ -1,0 +1,96 @@
+syntax = "proto3";
+
+package sensor;
+
+service SensorService {
+    // unos jednog ocitavanja (Scenario A)
+    rpc IngestReading (SensorReading) returns (IngestResponse);
+
+    // batch unos (Scenario A)
+    rpc IngestBatch (BatchRequest) returns (IngestResponse);
+
+    // citanje po device_id + vremenski opseg
+    rpc GetReadings (ReadingsRequest) returns (ReadingsResponse);
+
+    // selekcija specificnih polja (Scenario B)
+    rpc GetSelectedFields (SelectedFieldsRequest) returns (SelectedFieldsResponse);
+
+    // agregacije avg/min/max (Scenario C)
+    rpc GetAggregation (AggregationRequest) returns (AggregationResponse);
+}
+
+message SensorReading {
+    double ts = 1;
+    string device_id = 2;
+    double co = 3;
+    double humidity = 4;
+    bool light = 5;
+    double lpg = 6;
+    bool motion = 7;
+    double smoke = 8;
+    double temp = 9;
+}
+
+message BatchRequest {
+    repeated SensorReading readings = 1;
+}
+
+message IngestResponse {
+    bool success = 1;
+    int32 count = 2;
+}
+
+message ReadingsRequest {
+    string device_id = 1;
+    double from_ts = 2;
+    double to_ts = 3;
+    int32 limit = 4;
+}
+
+message ReadingsResponse {
+    repeated SensorReading readings = 1;
+}
+
+message SelectedFieldsRequest {
+    string device_id = 1;
+    double from_ts = 2;
+    double to_ts = 3;
+    repeated string fields = 4;
+    int32 limit = 5;
+}
+
+message FieldValues {
+    map<string, double> numeric_values = 1;
+    map<string, bool> bool_values = 2;
+    double ts = 3;
+    string device_id = 4;
+}
+
+message SelectedFieldsResponse {
+    repeated FieldValues readings = 1;
+}
+
+message AggregationRequest {
+    string device_id = 1;
+    double from_ts = 2;
+    double to_ts = 3;
+}
+
+message AggregationResponse {
+    double avg_co = 1;
+    double min_co = 2;
+    double max_co = 3;
+    double avg_humidity = 4;
+    double min_humidity = 5;
+    double max_humidity = 6;
+    double avg_lpg = 7;
+    double min_lpg = 8;
+    double max_lpg = 9;
+    double avg_smoke = 10;
+    double min_smoke = 11;
+    double max_smoke = 12;
+    double avg_temp = 13;
+    double min_temp = 14;
+    double max_temp = 15;
+    int64 count = 16;
+}
