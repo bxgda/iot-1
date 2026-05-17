@@ -4,10 +4,10 @@ using graphql_service.GraphQL;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// PostgreSQL sa EF Core — pooled factory za Hot Chocolate
+// PostgreSQL sa EF Core — pooled factory za Hot Chocolate, povecan pool
 builder.Services.AddPooledDbContextFactory<AppDbContext>(options =>
     options.UseNpgsql(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
+        builder.Configuration.GetConnectionString("DefaultConnection") + ";Maximum Pool Size=200;Minimum Pool Size=10;",
         npgsql => npgsql.EnableRetryOnFailure(3)
     )
 );

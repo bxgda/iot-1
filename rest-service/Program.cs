@@ -3,10 +3,10 @@ using rest_service.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// PostgreSQL sa EF Core
+// PostgreSQL sa EF Core — connection pool povecan za vece opterecenje
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
+        builder.Configuration.GetConnectionString("DefaultConnection") + ";Maximum Pool Size=200;Minimum Pool Size=10;",
         npgsql => npgsql.EnableRetryOnFailure(3)
     )
 );
