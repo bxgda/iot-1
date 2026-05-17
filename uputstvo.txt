@@ -1,0 +1,249 @@
+==============================================================================
+  iot mikroservisni projekat — kompletno uputstvo
+==============================================================================
+
+preduslovi:
+  - docker desktop (https://www.docker.com/products/docker-desktop)
+  - .net 10 sdk (https://dotnet.microsoft.com/download)
+  - python 3.11+ (https://www.python.org/downloads)
+  - k6 (winget install grafana.k6)
+  - grpcurl (choco install grpcurl) — za rucno testiranje grpc-a
+
+==============================================================================
+  1. POKRETANJE CELOG SISTEMA (docker compose)
+==============================================================================
+
+pokrece postgresql + rest + grpc + graphql u kontejnerima:
+
+  cd "D:\faks\8. semestar\internet stvari\iot-1"
+  docker compose up --build
+
+prvi put ce trajati duze (skida slike, kompajlira, uvozi 405.184 reda u bazu)
+svaki sledeci put je brz jer koristi kesirane slike
+
+gasenje:
+
+  docker compose down
+
+gasenje + brisanje baze (ako hoces cist uvoz podataka):
+
+  docker compose down -v
+
+portovi:
+  rest:     http://localhost:5000
+  grpc:     localhost:50051
+  graphql:  http://localhost:5002
+  postgres: localhost:5432
+
+==============================================================================
+  2. REST SERVIS (asp.net core, port 5000)
+==============================================================================
+
+swagger ui (testiranje iz browsera):
+  http://localhost:5000/swagger
+
+endpointi:
+
+  [upis jednog ocitavanja]
+  POST http://localhost:5000/api/readings
+  body: {"ts":1594512000,"deviceId":"b8:27:eb:bf:9d:51","co":0.005,"humidity":51,"light":false,"lpg":0.007,"motion":false,"smoke":0.02,"temp":22.7}
+
+  [batch upis]
+  POST http://localhost:5000/api/readings/batch
+  body: {"readings":[...]}
+
+  [citanje po uredjaju i vremenu]
+  http://localhost:5000/api/readings?deviceId=b8:27:eb:bf:9d:51&from=2020-07-12T00:00:00&to=2020-07-12T01:00:00&limit=5
+
+  [selektivno citanje — samo odredjena polja]
+  http://localhost:5000/api/readings/select?deviceId=b8:27:eb:bf:9d:51&fields=temp,humidity&from=2020-07-12T00:00:00&to=2020-07-12T01:00:00&limit=5
+
+  [agregacije — prosek, min, max]
+  http://localhost:5000/api/readings/aggregate?deviceId=b8:27:eb:bf:9d:51&from=2020-07-12T00:00:00&to=2020-07-13T00:00:00
+
+lokalno pokretanje (bez dockera):
+  cd rest-service
+  dotnet run
+
+==============================================================================
+  3. GRPC SERVIS (python, port 50051)
+==============================================================================
+
+rucno testiranje (powershell — koristi cmd /c wrapper):
+
+  [lista servisa]
+  grpcurl -plaintext localhost:50051 list
+
+  [citanje po uredjaju]
+  cmd /c "echo {""device_id"": ""b8:27:eb:bf:9d:51"", ""from_ts"": 1594512000, ""to_ts"": 1594515600, ""limit"": 3} | grpcurl -plaintext -d @ localhost:50051 sensor.SensorService/GetReadings"
+
+  [selektivno — samo temp i humidity]
+  cmd /c "echo {""device_id"": ""b8:27:eb:bf:9d:51"", ""from_ts"": 1594512000, ""to_ts"": 1594515600, ""fields"": [""temp"", ""humidity""], ""limit"": 3} | grpcurl -plaintext -d @ localhost:50051 sensor.SensorService/GetSelectedFields"
+
+  [agregacije]
+  cmd /c "echo {""device_id"": ""b8:27:eb:bf:9d:51"", ""from_ts"": 1594512000, ""to_ts"": 1594598400} | grpcurl -plaintext -d @ localhost:50051 sensor.SensorService/GetAggregation"
+
+  [upis jednog ocitavanja]
+  cmd /c "echo {""ts"": 1594512000, ""device_id"": ""test:device:01"", ""co"": 0.005, ""humidity"": 55.0, ""light"": false, ""lpg"": 0.007, ""motion"": true, ""smoke"": 0.02, ""temp"": 23.5} | grpcurl -plaintext -d @ localhost:50051 sensor.SensorService/IngestReading"
+
+lokalno pokretanje (bez dockera, postgres mora da radi):
+  cd grpc-service
+  python -m venv venv
+  venv\Scripts\activate
+  pip install -r requirements.txt
+  python generate_proto.py
+  set DB_HOST=localhost
+  python server.py
+
+==============================================================================
+  4. GRAPHQL SERVIS (asp.net core + hot chocolate, port 5002)
+==============================================================================
+
+banana cake pop (graficki interfejs za testiranje):
+  http://localhost:5002/graphql
+
+primeri upita (kucaj ih u banana cake pop):
+
+  [citanje — klijent bira polja (sustina graphql-a)]
+  query {
+    readings(deviceId: "b8:27:eb:bf:9d:51", from: "2020-07-12T00:00:00Z", to: "2020-07-12T01:00:00Z", limit: 5) {
+      temp
+      humidity
+    }
+  }
+
+  [citanje — sva polja]
+  query {
+    readings(deviceId: "b8:27:eb:bf:9d:51", from: "2020-07-12T00:00:00Z", to: "2020-07-13T00:00:00Z", limit: 3) {
+      ts deviceId co humidity light lpg motion smoke temp
+    }
+  }
+
+  [agregacije]
+  query {
+    aggregation(deviceId: "b8:27:eb:bf:9d:51", from: "2020-07-12T00:00:00Z", to: "2020-07-13T00:00:00Z") {
+      count avgTemp minTemp maxTemp avgHumidity minHumidity maxHumidity
+    }
+  }
+
+  [upis jednog ocitavanja]
+  mutation {
+    ingestReading(input: {
+      ts: 1594512000, deviceId: "test:device:01",
+      co: 0.005, humidity: 55.0, light: false,
+      lpg: 0.007, motion: true, smoke: 0.02, temp: 23.5
+    }) {
+      id ts temp
+    }
+  }
+
+lokalno pokretanje (bez dockera):
+  cd graphql-service
+  dotnet run
+
+==============================================================================
+  5. BAZA PODATAKA (postgresql)
+==============================================================================
+
+konekcija:
+  host: localhost
+  port: 5432
+  baza: iot
+  user: iot_user
+  pass: iot_pass
+
+korisni upiti (pokreni iz bilo kog sql klijenta ili terminala):
+
+  docker exec iot-postgres psql -U iot_user -d iot -c "SELECT count(*) FROM sensor_readings;"
+  docker exec iot-postgres psql -U iot_user -d iot -c "SELECT DISTINCT device_id FROM sensor_readings;"
+  docker exec iot-postgres psql -U iot_user -d iot -c "SELECT * FROM sensor_readings LIMIT 5;"
+
+uredjaji u datasetu:
+  b8:27:eb:bf:9d:51
+  00:0f:00:70:91:0a
+  1c:bf:ce:15:ec:4d
+
+vremenski opseg: jul 2020 (timestamps oko 1594512000)
+
+==============================================================================
+  6. K6 TESTOVI PERFORMANSI
+==============================================================================
+
+pre testiranja: docker compose up --build mora da radi u jednom terminalu
+
+--- sve odjednom (~30 min) ---
+
+  cd k6-tests
+  .\run-all.ps1
+
+--- ili rucno, jedan po jedan ---
+
+  cd k6-tests
+
+  === scenario a — high-frequency ingestion (brz upis) ===
+  simulira uredjaje koji salju podatke u kratkim intervalima
+  testira brzinu upisa i overhead protokola
+
+  k6 run -e PROTOCOL=rest -e VUS=10 -e DURATION=60s --summary-export=results/scenario-a-ingestion_rest_10vu.json scenario-a-ingestion.js
+  k6 run -e PROTOCOL=rest -e VUS=100 -e DURATION=60s --summary-export=results/scenario-a-ingestion_rest_100vu.json scenario-a-ingestion.js
+  k6 run -e PROTOCOL=rest -e VUS=500 -e DURATION=60s --summary-export=results/scenario-a-ingestion_rest_500vu.json scenario-a-ingestion.js
+  k6 run -e PROTOCOL=grpc -e VUS=10 -e DURATION=60s --summary-export=results/scenario-a-ingestion_grpc_10vu.json scenario-a-ingestion.js
+  k6 run -e PROTOCOL=grpc -e VUS=100 -e DURATION=60s --summary-export=results/scenario-a-ingestion_grpc_100vu.json scenario-a-ingestion.js
+  k6 run -e PROTOCOL=grpc -e VUS=500 -e DURATION=60s --summary-export=results/scenario-a-ingestion_grpc_500vu.json scenario-a-ingestion.js
+  k6 run -e PROTOCOL=graphql -e VUS=10 -e DURATION=60s --summary-export=results/scenario-a-ingestion_graphql_10vu.json scenario-a-ingestion.js
+  k6 run -e PROTOCOL=graphql -e VUS=100 -e DURATION=60s --summary-export=results/scenario-a-ingestion_graphql_100vu.json scenario-a-ingestion.js
+  k6 run -e PROTOCOL=graphql -e VUS=500 -e DURATION=60s --summary-export=results/scenario-a-ingestion_graphql_500vu.json scenario-a-ingestion.js
+
+  === scenario b — selective monitoring (selektivno citanje) ===
+  simulira mobilnu app sa losom vezom koja trazi samo temp i humidity (2 od 7 polja)
+  testira velicinu odgovora i over-fetching
+
+  k6 run -e PROTOCOL=rest -e VUS=10 -e DURATION=60s --summary-export=results/scenario-b-selective_rest_10vu.json scenario-b-selective.js
+  k6 run -e PROTOCOL=rest -e VUS=100 -e DURATION=60s --summary-export=results/scenario-b-selective_rest_100vu.json scenario-b-selective.js
+  k6 run -e PROTOCOL=rest -e VUS=500 -e DURATION=60s --summary-export=results/scenario-b-selective_rest_500vu.json scenario-b-selective.js
+  k6 run -e PROTOCOL=grpc -e VUS=10 -e DURATION=60s --summary-export=results/scenario-b-selective_grpc_10vu.json scenario-b-selective.js
+  k6 run -e PROTOCOL=grpc -e VUS=100 -e DURATION=60s --summary-export=results/scenario-b-selective_grpc_100vu.json scenario-b-selective.js
+  k6 run -e PROTOCOL=grpc -e VUS=500 -e DURATION=60s --summary-export=results/scenario-b-selective_grpc_500vu.json scenario-b-selective.js
+  k6 run -e PROTOCOL=graphql -e VUS=10 -e DURATION=60s --summary-export=results/scenario-b-selective_graphql_10vu.json scenario-b-selective.js
+  k6 run -e PROTOCOL=graphql -e VUS=100 -e DURATION=60s --summary-export=results/scenario-b-selective_graphql_100vu.json scenario-b-selective.js
+  k6 run -e PROTOCOL=graphql -e VUS=500 -e DURATION=60s --summary-export=results/scenario-b-selective_graphql_500vu.json scenario-b-selective.js
+
+  === scenario c — heavy querying (teski upiti / agregacije) ===
+  simulira dashboard koji trazi avg/min/max nad velikim opsegom podataka
+  testira performanse agregacionih upita i serijalizaciju rezultata
+
+  k6 run -e PROTOCOL=rest -e VUS=10 -e DURATION=60s --summary-export=results/scenario-c-heavy-query_rest_10vu.json scenario-c-heavy-query.js
+  k6 run -e PROTOCOL=rest -e VUS=100 -e DURATION=60s --summary-export=results/scenario-c-heavy-query_rest_100vu.json scenario-c-heavy-query.js
+  k6 run -e PROTOCOL=rest -e VUS=500 -e DURATION=60s --summary-export=results/scenario-c-heavy-query_rest_500vu.json scenario-c-heavy-query.js
+  k6 run -e PROTOCOL=grpc -e VUS=10 -e DURATION=60s --summary-export=results/scenario-c-heavy-query_grpc_10vu.json scenario-c-heavy-query.js
+  k6 run -e PROTOCOL=grpc -e VUS=100 -e DURATION=60s --summary-export=results/scenario-c-heavy-query_grpc_100vu.json scenario-c-heavy-query.js
+  k6 run -e PROTOCOL=grpc -e VUS=500 -e DURATION=60s --summary-export=results/scenario-c-heavy-query_grpc_500vu.json scenario-c-heavy-query.js
+  k6 run -e PROTOCOL=graphql -e VUS=10 -e DURATION=60s --summary-export=results/scenario-c-heavy-query_graphql_10vu.json scenario-c-heavy-query.js
+  k6 run -e PROTOCOL=graphql -e VUS=100 -e DURATION=60s --summary-export=results/scenario-c-heavy-query_graphql_100vu.json scenario-c-heavy-query.js
+  k6 run -e PROTOCOL=graphql -e VUS=500 -e DURATION=60s --summary-export=results/scenario-c-heavy-query_graphql_500vu.json scenario-c-heavy-query.js
+
+--- pracenje resursa tokom testova (u posebnom terminalu) ---
+
+  docker stats
+
+==============================================================================
+  7. OBJASNJENJE PARAMETARA I METRIKA
+==============================================================================
+
+parametri:
+  PROTOCOL=rest|grpc|graphql   — koji servis testiras
+  VUS=10|100|500               — broj virtuelnih korisnika (opterecenje)
+  DURATION=60s                 — koliko traje test
+
+metrike u rezultatima:
+  http_req_duration.avg        — prosecna latencija (ms)
+  http_req_duration.p(95)      — 95% zahteva je brze od ove vrednosti (ms)
+  http_reqs.rate               — zahtevi u sekundi (RPS)
+  response_size_bytes.avg      — prosecna velicina odgovora u bajtovima (scenario b i c)
+  grpc_req_duration.avg        — prosecna latencija za grpc (ms)
+  checks.passes / fails        — koliko zahteva je uspelo / palo
+
+vus objasnjenje:
+  10 vu    — mala kuca, par senzora
+  100 vu   — zgrada ili hotel, dosta uredjaja
+  500 vu   — grad/fabrika, stres test
